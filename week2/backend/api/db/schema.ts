@@ -22,21 +22,12 @@ export const genres = t.pgTable("genres", {
 
 export const books = t.pgTable("books", {
   id: t.bigserial({ mode: "number" }).primaryKey(),
-  title: t
-    .varchar({
-      length: 255,
-    })
-    .notNull(),
-  author: t
-    .varchar({
-      length: 255,
-    })
-    .notNull(),
+  title: t.varchar({ length: 255 }).notNull(),
+  author: t.varchar({ length: 255 }).notNull(),
   publishedAt: t.timestamp().notNull(),
-
-  genreId: t.bigint({ mode: "number" }).references(() => genres.id, {
-    onDelete: "set null",
-  }),
+  genreId: t.bigint({ mode: "number" }).references(() => genres.id, { onDelete: "set null" }),
+  description: t.text(), // รายละเอียดหนังสือ
+  summary: t.text(),     // เรื่องย่อ
 });
 
 export const bookRelations = relations(books, ({ one }) => ({

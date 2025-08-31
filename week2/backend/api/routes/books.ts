@@ -36,10 +36,12 @@ booksRouter.post(
           message: "Invalid date format. Use YYYY-MM-DD.",
         }),
       genreId: z.number().int().optional(),
+      description: z.string().optional(),
+      summary: z.string().optional(),
     })
   ),
   async (c) => {
-    const { title, author, publishedAt, genreId } = c.req.valid("json");
+    const { title, author, publishedAt, genreId, description, summary } = c.req.valid("json");
     const result = await drizzle
       .insert(books)
       .values({
@@ -47,6 +49,8 @@ booksRouter.post(
         author,
         publishedAt: new Date(publishedAt),
         genreId,
+        description,
+        summary,
       })
       .returning();
     return c.json({ success: true, book: result[0] }, 201);
@@ -67,16 +71,20 @@ booksRouter.patch(
         })
         .optional(),
       genreId: z.number().int().optional(),
+      description: z.string().optional(),
+      summary: z.string().optional(),
     })
   ),
   async (c) => {
     const id = Number(c.req.param("id"));
-    const { title, author, publishedAt, genreId } = c.req.valid("json");
+    const { title, author, publishedAt, genreId, description, summary } = c.req.valid("json");
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (author !== undefined) updateData.author = author;
     if (publishedAt !== undefined) updateData.publishedAt = new Date(publishedAt);
     if (genreId !== undefined) updateData.genreId = genreId;
+    if (description !== undefined) updateData.description = description;
+    if (summary !== undefined) updateData.summary = summary;
 
     const updated = await drizzle
       .update(books)
