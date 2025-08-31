@@ -1,3 +1,4 @@
+import { Select } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/layout";
 import { Button, Container, Divider, TextInput } from "@mantine/core";
@@ -7,11 +8,14 @@ import axios, { AxiosError } from "axios";
 import { notifications } from "@mantine/notifications";
 import { Book } from "../lib/models";
 import { DateTimePicker } from "@mantine/dates";
+import useSWR from "swr";
 
 export default function BookCreatePage() {
   const navigate = useNavigate();
-
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Fetch genres from API
+  const { data: genres, isLoading: genresLoading } = useSWR<{ id: number; title: string }[]>("/genres");
 
   const bookCreateForm = useForm({
     initialValues: {
@@ -20,23 +24,23 @@ export default function BookCreatePage() {
       publishedAt: new Date(),
       description: "",
       summary: "",
+      genreId: "", // Add genreId to form
     },
-
     validate: {
       title: isNotEmpty("กรุณาระบุชื่อหนังสือ"),
       author: isNotEmpty("กรุณาระบุชื่อผู้แต่ง"),
       publishedAt: isNotEmpty("กรุณาระบุวันที่พิมพ์หนังสือ"),
-      // description and summary are optional
+      genreId: isNotEmpty("กรุณาเลือกหมวดหมู่"),
     },
   });
 
   const handleSubmit = async (values: typeof bookCreateForm.values) => {
     try {
       setIsProcessing(true);
-      const response = await axios.post<{
-        message: string;
-        book: Book;
-      }>(`/books`, values);
+      const response = await axios.post<{ message: string; book: Book }>(
+        `/books`,
+        { ...values, genreId: Number(values.genreId) } // Ensure genreId is a number
+      );
       notifications.show({
         title: "เพิ่มข้อมูลหนังสือสำเร็จ",
         message: "ข้อมูลหนังสือได้รับการเพิ่มเรียบร้อยแล้ว",
@@ -93,6 +97,18 @@ export default function BookCreatePage() {
               label="วันที่พิมพ์"
               placeholder="วันที่พิมพ์"
               {...bookCreateForm.getInputProps("publishedAt")}
+            />
+
+            <Select
+              label="หมวดหมู่"
+              placeholder={genresLoading ? "กำลังโหลด..." : "เลือกหมวดหมู่"}
+              data={
+                genres
+                  ? genres.map((g) => ({ value: String(g.id), label: g.title }))
+                  : []
+              }
+              {...bookCreateForm.getInputProps("genreId")}
+              disabled={genresLoading}
             />
 
             <TextInput

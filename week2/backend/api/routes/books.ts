@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import drizzle from "../db/drizzle.js";
-import { books } from "../db/schema.js";
+import { books, genres } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
@@ -10,18 +10,31 @@ const booksRouter = new Hono();
 
 booksRouter.get("/", async (c) => {
   const allbooks = await drizzle.select().from(books);
-  return c.json(allbooks);
+ 
 });
 
 booksRouter.get("/:id", async (c) => {
   const id = Number(c.req.param("id"));
-  const result = await drizzle.query.books.findFirst({
-    where: eq(books.id, id),
-  });
-  if (!result) {
+  // Join books and genres to get the genre title
+  const result = await drizzle
+    .select({
+      id: books.id,
+      title: books.title,
+      author: books.author,
+      publishedAt: books.publishedAt,
+      genreId: books.genreId,
+      description: books.description,
+      summary: books.summary,
+      genre: genres.title, // joined genre name
+    })
+    .from(books)
+    .leftJoin(genres, eq(books.genreId, genres.id))
+    .where(eq(books.id, id));
+
+  if (!result || result.length === 0) {
     return c.json({ error: "Book not found" }, 404);
   }
-  return c.json(result);
+  return c.json(result[0]);
 });
 booksRouter.post(
   "/",
