@@ -27,6 +27,8 @@ export default function BookEditById() {
       title: "",
       author: "",
       publishedAt: new Date(),
+      description: "",
+      summary: "",
     },
 
     validate: {
@@ -122,11 +124,15 @@ export default function BookEditById() {
         title: book.title,
         author: book.author,
         publishedAt: book.publishedAt ? dayjs(book.publishedAt).toDate() : new Date(),
+        description: book.description ?? "",
+        summary: book.summary ?? "",
       });
       bookEditForm.setValues({
         title: book.title,
         author: book.author,
         publishedAt: book.publishedAt ? dayjs(book.publishedAt).toDate() : new Date(),
+        description: book.description ?? "",
+        summary: book.summary ?? "",
       });
       setIsSetInitialValues(true);
     }
@@ -170,9 +176,17 @@ export default function BookEditById() {
                   {...bookEditForm.getInputProps("publishedAt")}
                 />
 
-                {/* TODO: เพิ่มรายละเอียดหนังสือ */}
-                {/* TODO: เพิ่มเรื่องย่อ */}
-                {/* TODO: เพิ่มหมวดหมู่(s) */}
+                <TextInput
+                  label="รายละเอียดหนังสือ"
+                  placeholder="รายละเอียดหนังสือ"
+                  {...bookEditForm.getInputProps("description")}
+                />
+
+                <TextInput
+                  label="เรื่องย่อ"
+                  placeholder="เรื่องย่อ"
+                  {...bookEditForm.getInputProps("summary")}
+                />
 
                 <Divider />
 

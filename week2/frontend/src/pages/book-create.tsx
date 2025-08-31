@@ -18,12 +18,15 @@ export default function BookCreatePage() {
       title: "",
       author: "",
       publishedAt: new Date(),
+      description: "",
+      summary: "",
     },
 
     validate: {
       title: isNotEmpty("กรุณาระบุชื่อหนังสือ"),
       author: isNotEmpty("กรุณาระบุชื่อผู้แต่ง"),
       publishedAt: isNotEmpty("กรุณาระบุวันที่พิมพ์หนังสือ"),
+      // description and summary are optional
     },
   });
 
@@ -92,9 +95,17 @@ export default function BookCreatePage() {
               {...bookCreateForm.getInputProps("publishedAt")}
             />
 
-            {/* TODO: เพิ่มรายละเอียดหนังสือ */}
-            {/* TODO: เพิ่มเรื่องย่อ */}
-            {/* TODO: เพิ่มหมวดหมู่(s) */}
+            <TextInput
+              label="รายละเอียดหนังสือ"
+              placeholder="รายละเอียดหนังสือ"
+              {...bookCreateForm.getInputProps("description")}
+            />
+
+            <TextInput
+              label="เรื่องย่อ"
+              placeholder="เรื่องย่อ"
+              {...bookCreateForm.getInputProps("summary")}
+            />
 
             <Divider />
 
