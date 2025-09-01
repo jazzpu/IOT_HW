@@ -25,7 +25,7 @@ booksRouter.get("/:id", async (c) => {
       genreId: books.genreId,
       description: books.description,
       summary: books.summary,
-      genre: genres.title, // joined genre name
+      genre: genres.title,
     })
     .from(books)
     .leftJoin(genres, eq(books.genreId, genres.id))
