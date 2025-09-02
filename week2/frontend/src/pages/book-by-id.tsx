@@ -53,7 +53,7 @@ export default function BookByIdPage() {
                   <h3>หมวดหมู่</h3>
                   {/* TODO: เพิ่มหมวดหมู่(s) */}
                   <div className="flex flex-wrap gap-2">
-                    <Badge color="teal">#{book.genre}</Badge>
+                    <Badge color="teal">Genre</Badge>
                   </div>
                 </div>
               </div>

@@ -24,8 +24,6 @@ const theme = createTheme({
   primaryColor: "orange",
   fontFamily: '"Noto Sans Thai Looped", sans-serif',
 });
-
-// ---- Axios defaults (single source of truth) ----
 axios.defaults.baseURL =
   import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
 

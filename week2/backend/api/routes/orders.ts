@@ -63,7 +63,7 @@ ordersRouter.delete("/:id", async (c) => {
   const deleted = await db.delete(orders).where(eq(orders.id, id)).returning({ id: orders.id });
   if (deleted.length === 0) return c.json({ message: "Not found" }, 404);
 
-  return c.body(null, 204); // No Content
+  return c.body(null, 204);
 });
 
 ordersRouter.get("/", async (c) => {
