@@ -2,10 +2,11 @@ export interface Book {
   id: number;
   title: string;
   author: string;
+  description?: string;
+  synopsis?: string;
   publishedAt: string;
   genreId?: number;
-  description?: string;
-  summary?: string;
+  genre?: number;
 }
 
 export interface Genre {
@@ -16,19 +17,22 @@ export interface Genre {
 export interface Drink {
   id: number;
   name: string;
-  price: string;
+  price: string; // price from PG numeric is string
+}
+
+export interface OrderItem {
+  drinkId: number;
+  quantity: number;
+  name?: string;
+  unitPrice?: number;
+  subtotal?: number;
 }
 
 export interface Order {
   id: number;
   createdAt: string;
-  order?: string;
-}
-
-export interface OrderItem {
-  id: number;
-  orderId: number;
-  menuItemId: number;
-  quantity: number;
-  unitPrice: number;
+  note: string | null;
+  itemsCount: string;
+  total: string;
+  items?: OrderItem[];
 }

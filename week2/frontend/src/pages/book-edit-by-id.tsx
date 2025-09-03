@@ -2,7 +2,7 @@ import useSWR from "swr";
 import { Book } from "../lib/models";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/layout";
-import { Alert, Button, Container, Divider, TextInput, Select } from "@mantine/core";
+import { Alert, Button, Container, Divider, TextInput } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import Loading from "../components/loading";
 import { IconAlertTriangleFilled, IconTrash } from "@tabler/icons-react";
@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import axios, { AxiosError } from "axios";
 import { notifications } from "@mantine/notifications";
 import { modals } from "@mantine/modals";
+import { Select } from "@mantine/core";
 import dayjs from "dayjs";
 
 export default function BookEditById() {
@@ -19,38 +20,31 @@ export default function BookEditById() {
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // book + genres
   const { data: book, isLoading, error } = useSWR<Book>(`/books/${bookId}`);
-  const { data: genres, isLoading: genresLoading } =
-    useSWR<{ id: number; title: string }[]>(`/genres`);
-
+  const { data: genres } = useSWR<{ id: number; title: string }[]>(`/genres`);
   const [isSetInitialValues, setIsSetInitialValues] = useState(false);
 
   const bookEditForm = useForm({
     initialValues: {
       title: "",
       author: "",
-      publishedAt: new Date(),
       description: "",
-      summary: "",
-      genreId: "",
+      synopsis: "",
+      publishedAt: new Date(),
+      genreId: null as number | null,
     },
 
     validate: {
       title: isNotEmpty("กรุณาระบุชื่อหนังสือ"),
       author: isNotEmpty("กรุณาระบุชื่อผู้แต่ง"),
       publishedAt: isNotEmpty("กรุณาระบุวันที่พิมพ์หนังสือ"),
-      genreId: isNotEmpty("กรุณาเลือกหมวดหมู่"),
     },
   });
 
   const handleSubmit = async (values: typeof bookEditForm.values) => {
     try {
       setIsProcessing(true);
-      await axios.patch(`/books/${bookId}`, {
-        ...values,
-        genreId: Number(values.genreId),
-      });
+      await axios.patch(`/books/${bookId}`, values);
       notifications.show({
         title: "แก้ไขข้อมูลหนังสือสำเร็จ",
         message: "ข้อมูลหนังสือได้รับการแก้ไขเรียบร้อยแล้ว",
@@ -71,7 +65,7 @@ export default function BookEditById() {
             message: "กรุณาตรวจสอบข้อมูลที่กรอกใหม่อีกครั้ง",
             color: "red",
           });
-        } else if ((error.response?.status ?? 0) >= 500) {
+        } else if (error.response?.status || 500 >= 500) {
           notifications.show({
             title: "เกิดข้อผิดพลาดบางอย่าง",
             message: "กรุณาลองใหม่อีกครั้ง",
@@ -108,7 +102,7 @@ export default function BookEditById() {
             message: "ไม่พบข้อมูลหนังสือที่ต้องการลบ",
             color: "red",
           });
-        } else if ((error.response?.status ?? 0) >= 500) {
+        } else if (error.response?.status || 500 >= 500) {
           notifications.show({
             title: "เกิดข้อผิดพลาดบางอย่าง",
             message: "กรุณาลองใหม่อีกครั้ง",
@@ -129,128 +123,135 @@ export default function BookEditById() {
 
   useEffect(() => {
     if (!isSetInitialValues && book) {
-      const published = book.publishedAt ? dayjs(book.publishedAt).toDate() : new Date();
-
-      const gid =
-        (book as any).genreId ??
-        (book as any).genre?.id ??
-        "";
+      const parsedDate = book.publishedAt
+        ? dayjs(book.publishedAt).toDate() // works with ISO or Date
+        : new Date();
 
       bookEditForm.setInitialValues({
         title: book.title,
         author: book.author,
-        publishedAt: published,
-        description: book.description ?? "",
-        summary: book.summary ?? "",
-        genreId: gid !== "" ? String(gid) : "",
-      });
+        description: book.description || "",
+        synopsis: book.synopsis || "",
+        publishedAt: parsedDate,
+        genreId: book.genreId || null,
+      })
+
       bookEditForm.setValues({
         title: book.title,
         author: book.author,
-        publishedAt: published,
-        description: book.description ?? "",
-        summary: book.summary ?? "",
-        genreId: gid !== "" ? String(gid) : "",
-      });
-      setIsSetInitialValues(true);
+        description: book.description || "",
+        synopsis: book.synopsis || "",
+        publishedAt: parsedDate,
+        genreId: book.genreId || null,
+      })
+
+      setIsSetInitialValues(true)
     }
-  }, [book, bookEditForm, isSetInitialValues]);
+  }, [book, bookEditForm, isSetInitialValues])
+
 
   return (
-    <Layout>
-      <Container className="mt-8">
-        <h1 className="text-xl">แก้ไขข้อมูลหนังสือ</h1>
+    <>
+      <Layout>
+        <Container className="mt-8">
+          <h1 className="text-xl">แก้ไขข้อมูลหนังสือ</h1>
 
-        {isLoading && !error && <Loading />}
-        {error && (
-          <Alert
-            color="red"
-            title="เกิดข้อผิดพลาดในการอ่านข้อมูล"
-            icon={<IconAlertTriangleFilled />}
-          >
-            {error.message}
-          </Alert>
-        )}
+          {isLoading && !error && <Loading />}
+          {error && (
+            <Alert
+              color="red"
+              title="เกิดข้อผิดพลาดในการอ่านข้อมูล"
+              icon={<IconAlertTriangleFilled />}
+            >
+              {error.message}
+            </Alert>
+          )}
 
-        {!!book && (
-          <form onSubmit={bookEditForm.onSubmit(handleSubmit)} className="space-y-8">
-            <TextInput
-              label="ชื่อหนังสือ"
-              placeholder="ชื่อหนังสือ"
-              {...bookEditForm.getInputProps("title")}
-            />
+          {!!book && (
+            <>
+              <form onSubmit={bookEditForm.onSubmit(handleSubmit)} className="space-y-8">
+                <TextInput
+                  label="ชื่อหนังสือ"
+                  placeholder="ชื่อหนังสือ"
+                  {...bookEditForm.getInputProps("title")}
+                />
 
-            <TextInput
-              label="ชื่อผู้แต่ง"
-              placeholder="ชื่อผู้แต่ง"
-              {...bookEditForm.getInputProps("author")}
-            />
+                <TextInput
+                  label="ชื่อผู้แต่ง"
+                  placeholder="ชื่อผู้แต่ง"
+                  {...bookEditForm.getInputProps("author")}
+                />
 
-            <DateTimePicker
-              label="วันที่พิมพ์"
-              placeholder="วันที่พิมพ์"
-              {...bookEditForm.getInputProps("publishedAt")}
-            />
+                <DateTimePicker
+                  label="วันที่พิมพ์"
+                  placeholder="วันที่พิมพ์"
+                  {...bookEditForm.getInputProps("publishedAt")}
+                />
 
-            <Select
-              label="หมวดหมู่"
-              placeholder={genresLoading ? "กำลังโหลด..." : "เลือกหมวดหมู่"}
-              data={
-                genres
-                  ? genres.map((g) => ({ value: String(g.id), label: g.title }))
-                  : []
-              }
-              {...bookEditForm.getInputProps("genreId")}
-              disabled={genresLoading}
-            />
+                <TextInput
+                  label="รายละเอียดหนังสือ"
+                  placeholder="รายละเอียดหนังสือ"
+                  {...bookEditForm.getInputProps("description")}
+                />
+                <TextInput
+                  label="เรื่องย่อ"
+                  placeholder="เรื่องย่อ"
+                  {...bookEditForm.getInputProps("synopsis")}
+                />
 
-            <TextInput
-              label="รายละเอียดหนังสือ"
-              placeholder="รายละเอียดหนังสือ"
-              {...bookEditForm.getInputProps("description")}
-            />
+                <Select
+                  label="หมวดหมู่"
+                  placeholder="เลือกหมวดหมู่"
+                  data={
+                    (genres || []).map((genre) => ({
+                      value: genre.id.toString(),
+                      label: genre.title,
+                    }))
+                  }
+                  value={bookEditForm.values.genreId ? bookEditForm.values.genreId.toString() : ""}
+                  onChange={(value) => {
+                    bookEditForm.setFieldValue("genreId", value ? Number(value) : null);
+                  }}
+                />
 
-            <TextInput
-              label="เรื่องย่อ"
-              placeholder="เรื่องย่อ"
-              {...bookEditForm.getInputProps("summary")}
-            />
 
-            <Divider />
+                <Divider />
 
-            <div className="flex justify-between">
-              <Button
-                color="red"
-                leftSection={<IconTrash />}
-                size="xs"
-                onClick={() => {
-                  modals.openConfirmModal({
-                    title: "คุณต้องการลบหนังสือเล่มนี้ใช่หรือไม่",
-                    children: (
-                      <span className="text-xs">
-                        เมื่อคุณดำเนินการลบหนังสือเล่มนี้แล้ว จะไม่สามารถย้อนกลับได้
-                      </span>
-                    ),
-                    labels: { confirm: "ลบ", cancel: "ยกเลิก" },
-                    onConfirm: () => {
-                      handleDelete();
-                    },
-                    confirmProps: {
-                      color: "red",
-                    },
-                  });
-                }}
-              >
-                ลบหนังสือนี้
-              </Button>
+                <div className="flex justify-between">
+                  <Button
+                    color="red"
+                    leftSection={<IconTrash />}
+                    size="xs"
+                    onClick={() => {
+                      modals.openConfirmModal({
+                        title: "คุณต้องการลบหนังสือเล่มนี้ใช่หรือไม่",
+                        children: (
+                          <span className="text-xs">
+                            เมื่อคุณดำนเนินการลบหนังสือเล่มนี้แล้ว จะไม่สามารถย้อนกลับได้
+                          </span>
+                        ),
+                        labels: { confirm: "ลบ", cancel: "ยกเลิก" },
+                        onConfirm: () => {
+                          handleDelete();
+                        },
+                        confirmProps: {
+                          color: "red",
+                        },
+                      });
+                    }}
+                  >
+                    ลบหนังสือนี้
+                  </Button>
 
-              <Button type="submit" loading={isLoading || isProcessing}>
-                บันทึกข้อมูล
-              </Button>
-            </div>
-          </form>
-        )}
-      </Container>
-    </Layout>
+                  <Button type="submit" loading={isLoading || isProcessing}>
+                    บันทึกข้อมูล
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
+        </Container>
+      </Layout>
+    </>
   );
 }

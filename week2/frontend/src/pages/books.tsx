@@ -1,14 +1,21 @@
 import Layout from "../components/layout";
 import cafeBackgroundImage from "../assets/images/bg-cafe-2.jpg";
 import useSWR from "swr";
-import { Book } from "../lib/models";
+import { Book, Genre } from "../lib/models";
 import Loading from "../components/loading";
-import { Alert, Button } from "@mantine/core";
+import { Alert, Badge, Button } from "@mantine/core";
 import { IconAlertTriangleFilled, IconPlus } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 
 export default function BooksPage() {
   const { data: books, error } = useSWR<Book[]>("/books");
+  const { data: genres } = useSWR<Genre[]>("/genres");
+
+  // Create a lookup map for genres
+  const genreMap = genres?.reduce((acc, genre) => {
+    acc[genre.id] = genre;
+    return acc;
+  }, {} as Record<number, Genre>);
 
   return (
     <>
@@ -61,6 +68,13 @@ export default function BooksPage() {
                 <div className="p-4">
                   <h2 className="text-lg font-semibold line-clamp-2">{book.title}</h2>
                   <p className="text-xs text-neutral-500">โดย {book.author}</p>
+                  {book.genreId && genreMap?.[book.genreId] ? (
+                    <Badge color="teal">
+                      {genreMap[book.genreId].title}
+                    </Badge>
+                  ) : (
+                    <Badge color="gray">ไม่ทราบหมวดหมู่</Badge>
+                  )}
                 </div>
 
                 <div className="flex justify-end px-4 pb-2">

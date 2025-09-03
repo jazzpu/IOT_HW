@@ -1,84 +1,107 @@
-// api/routes/orders.ts
 import { Hono } from "hono";
-import db from "../db/drizzle.js";
-import { drinks, orders, orderItems } from "../db/schema";
-import { inArray, eq, sql } from "drizzle-orm";
+import drizzle from "../db/drizzle.js";
+import { orders, orderItems, drinks } from "../db/schema.js";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { zValidator } from "@hono/zod-validator";
 
 const ordersRouter = new Hono();
-// orders.ts
+
 ordersRouter.get("/", async (c) => {
-  const result = await db.execute(sql/*sql*/`
-    SELECT o.id,
-           o.created_at AS "createdAt",
-           o.note,
-           COALESCE(SUM(oi.quantity), 0) AS "itemsCount",
-           COALESCE(SUM(oi.quantity * oi.unit_price::numeric), 0) AS total
-    FROM orders o
-    LEFT JOIN order_items oi ON oi.order_id = o.id
-    GROUP BY o.id
-    ORDER BY o.id DESC
-  `);
+  // Get all orders
+  const allOrders = await drizzle.select().from(orders);
+  // For each order, get items and calculate total
+  const results = await Promise.all(
+    allOrders.map(async (order) => {
+      const items = await drizzle
+        .select({
+          drinkId: orderItems.drinkId,
+          quantity: orderItems.quantity,
+          name: drinks.name,
+          unitPrice: drinks.price,
+        })
+        .from(orderItems)
+        .leftJoin(drinks, eq(orderItems.drinkId, drinks.id))
+        .where(eq(orderItems.orderId, order.id));
 
-  // Drizzle/pg/neon may return either an array OR { rows: [...] }
-  const rows = Array.isArray(result) ? result : (result as any).rows;
-  return c.json(rows); // <— always an array
-});
+      const itemsCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      const total = items.reduce((sum, item) => sum + (Number(item.unitPrice) * item.quantity), 0);
+      const itemDetails = items.map(item => ({
+        drinkId: item.drinkId,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        subtotal: Number(item.unitPrice) * item.quantity,
+      }));
 
-ordersRouter.post("/", async (c) => {
-  const body = await c.req.json().catch(() => ({} as any)) as {
-    note?: string;
-    items?: Array<{ drinkId: number; quantity: number }>;
-  };
-
-  if (!Array.isArray(body.items) || body.items.length === 0) {
-    return c.json({ message: "No items" }, 400);
-  }
-
-  const wanted = body.items
-    .map(i => ({ drinkId: Number(i.drinkId), quantity: Number(i.quantity) }))
-    .filter(i => Number.isInteger(i.drinkId) && i.quantity > 0);
-
-  if (wanted.length === 0) return c.json({ message: "Invalid items" }, 400);
-
-  const ids = [...new Set(wanted.map(i => i.drinkId))];
-  const rows = await db.select().from(drinks).where(inArray(drinks.id, ids));
-  if (rows.length !== ids.length) return c.json({ message: "Unknown drinkId" }, 400);
-
-  const [o] = await db.insert(orders).values({ note: body.note ?? null }).returning();
-
-  await db.insert(orderItems).values(
-    wanted.map(w => {
-      const d = rows.find(r => r.id === w.drinkId)!;
-      return { orderId: o.id, drinkId: d.id, quantity: w.quantity, unitPrice: d.price };
+      return {
+        id: order.id,
+        createdAt: order.createdAt,
+        note: order.note,
+        itemsCount: itemsCount.toString(),
+        total: total.toFixed(2),
+        items: itemDetails,
+      };
     })
   );
-
-  return c.json({ orderId: o.id }, 201);
+  return c.json(results);
 });
 
+ordersRouter.get(":id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const result = await drizzle.query.orders.findFirst({
+    where: eq(orders.id, id)
+  });
+  if (!result) {
+    return c.json({ error: "Order not found" }, 404);
+  }
+  return c.json(result);
+});
+
+// Create order
+ordersRouter.post(
+  "/",
+  zValidator(
+    "json",
+    z.object({
+      note: z.string().nullable().optional(),
+      items: z.array(z.object({ drinkId: z.number(), quantity: z.number().min(1) }))
+    })
+  ),
+  async (c) => {
+    const { note, items } = await c.req.json();
+    const [order] = await drizzle.insert(orders).values({ note }).returning();
+    if (!order) return c.json({ error: "Order creation failed" }, 500);
+    // Insert order items
+    await Promise.all(items.map((item: { drinkId: number; quantity: number }) =>
+      drizzle.insert(orderItems).values({ orderId: order.id, drinkId: item.drinkId, quantity: item.quantity })
+    ));
+    return c.json(order);
+  }
+);
+
+// Update order note only
+ordersRouter.put(
+  "/:id",
+  zValidator(
+    "json",
+    z.object({ note: z.string().nullable().optional() })
+  ),
+  async (c) => {
+    const id = Number(c.req.param("id"));
+    const { note } = await c.req.json();
+    const [order] = await drizzle.update(orders).set({ note }).where(eq(orders.id, id)).returning();
+    if (!order) return c.json({ error: "Order not found" }, 404);
+    return c.json(order);
+  }
+);
+
+// Delete order
 ordersRouter.delete("/:id", async (c) => {
   const id = Number(c.req.param("id"));
-  if (!Number.isInteger(id)) return c.json({ message: "Invalid id" }, 400);
-
-  const deleted = await db.delete(orders).where(eq(orders.id, id)).returning({ id: orders.id });
-  if (deleted.length === 0) return c.json({ message: "Not found" }, 404);
-
-  return c.body(null, 204);
-});
-
-ordersRouter.get("/", async (c) => {
-  const summary = await db.execute(sql/*sql*/`
-    SELECT o.id,
-           o.created_at AS "createdAt",
-           o.note,
-           COALESCE(SUM(oi.quantity), 0) AS "itemsCount",
-           COALESCE(SUM(oi.quantity * oi.unit_price::numeric), 0) AS total
-    FROM orders o
-    LEFT JOIN order_items oi ON oi.order_id = o.id
-    GROUP BY o.id
-    ORDER BY o.id DESC
-  `);
-  return c.json(summary);
+  const [order] = await drizzle.delete(orders).where(eq(orders.id, id)).returning();
+  if (!order) return c.json({ error: "Order not found" }, 404);
+  return c.json({ success: true });
 });
 
 export default ordersRouter;

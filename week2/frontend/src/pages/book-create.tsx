@@ -1,4 +1,3 @@
-import { Select } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/layout";
 import { Button, Container, Divider, TextInput } from "@mantine/core";
@@ -8,39 +7,40 @@ import axios, { AxiosError } from "axios";
 import { notifications } from "@mantine/notifications";
 import { Book } from "../lib/models";
 import { DateTimePicker } from "@mantine/dates";
+import { Select } from "@mantine/core";
 import useSWR from "swr";
 
 export default function BookCreatePage() {
   const navigate = useNavigate();
+
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Fetch genres from API
-  const { data: genres, isLoading: genresLoading } = useSWR<{ id: number; title: string }[]>("/genres");
+  const {data: genres} = useSWR<{ id: number; title: string }[]>(`/genres`);
 
   const bookCreateForm = useForm({
     initialValues: {
       title: "",
       author: "",
-      publishedAt: new Date(),
       description: "",
-      summary: "",
-      genreId: "", // Add genreId to form
+      synopsis: "",
+      publishedAt: new Date(),
+      genreId: null as number | null,
     },
+
     validate: {
       title: isNotEmpty("กรุณาระบุชื่อหนังสือ"),
       author: isNotEmpty("กรุณาระบุชื่อผู้แต่ง"),
       publishedAt: isNotEmpty("กรุณาระบุวันที่พิมพ์หนังสือ"),
-      genreId: isNotEmpty("กรุณาเลือกหมวดหมู่"),
     },
   });
 
   const handleSubmit = async (values: typeof bookCreateForm.values) => {
     try {
       setIsProcessing(true);
-      const response = await axios.post<{ message: string; book: Book }>(
-        `/books`,
-        { ...values, genreId: Number(values.genreId) } // Ensure genreId is a number
-      );
+      const response = await axios.post<{
+        message: string;
+        book: Book;
+      }>(`/books`, values);
       notifications.show({
         title: "เพิ่มข้อมูลหนังสือสำเร็จ",
         message: "ข้อมูลหนังสือได้รับการเพิ่มเรียบร้อยแล้ว",
@@ -98,29 +98,30 @@ export default function BookCreatePage() {
               placeholder="วันที่พิมพ์"
               {...bookCreateForm.getInputProps("publishedAt")}
             />
-
-            <Select
-              label="หมวดหมู่"
-              placeholder={genresLoading ? "กำลังโหลด..." : "เลือกหมวดหมู่"}
-              data={
-                genres
-                  ? genres.map((g) => ({ value: String(g.id), label: g.title }))
-                  : []
-              }
-              {...bookCreateForm.getInputProps("genreId")}
-              disabled={genresLoading}
-            />
-
             <TextInput
               label="รายละเอียดหนังสือ"
               placeholder="รายละเอียดหนังสือ"
               {...bookCreateForm.getInputProps("description")}
             />
-
             <TextInput
               label="เรื่องย่อ"
               placeholder="เรื่องย่อ"
-              {...bookCreateForm.getInputProps("summary")}
+              {...bookCreateForm.getInputProps("synopsis")}
+            />
+
+            <Select
+              label="หมวดหมู่"
+              placeholder="เลือกหมวดหมู่"
+              data={
+                (genres || []).map((genre) => ({
+                  value: genre.id.toString(),
+                  label: genre.title,
+                }))
+              }
+              {...bookCreateForm.getInputProps("genreId")}
+              onChange={(value) => {
+                bookCreateForm.setFieldValue("genreId", value ? Number(value) : null);
+              }}
             />
 
             <Divider />
